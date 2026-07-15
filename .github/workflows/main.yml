@@ -18,6 +18,17 @@ jobs:
         with:
           node-version: 22
 
+      - name: Create .env file
+        run: |
+          cat <<EOF > backend/.env
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          PORT=${{ secrets.PORT }}
+          EOF
+
       - name: Install Dependencies
         working-directory: backend
         run: npm install
@@ -35,24 +46,25 @@ jobs:
       - name: Build Docker Image
         run: |
           docker build \
-            -t ${{ secrets.DOCKER_USERNAME }}/notes-backend:${{ github.sha }} \
             -t ${{ secrets.DOCKER_USERNAME }}/notes-backend:latest \
+            -t ${{ secrets.DOCKER_USERNAME }}/notes-backend:${{ github.sha }} \
             ./backend
 
       - name: Run Docker Container
         run: |
           docker run -d \
             --name notes-app \
-            -p 5000:5000 \
+            -p 3000:3000 \
+            --env-file backend/.env \
             ${{ secrets.DOCKER_USERNAME }}/notes-backend:latest
 
-      - name: Verify Container is Running
+      - name: Verify Container
         run: |
-          sleep 10
-          docker ps
+          sleep 15
+          docker ps -a
           docker logs notes-app
 
-      - name: Stop and Remove Container
+      - name: Stop Container
         if: always()
         run: |
           docker stop notes-app || true
@@ -60,5 +72,5 @@ jobs:
 
       - name: Push Docker Images
         run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/notes-backend:${{ github.sha }}
           docker push ${{ secrets.DOCKER_USERNAME }}/notes-backend:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/notes-backend:${{ github.sha }}
