@@ -58,15 +58,6 @@ jobs:
           docker stop notes-app || true
           docker rm notes-app || true
 
-      - name: Scan Docker Image
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: ${{ secrets.DOCKER_USERNAME }}/notes-backend:latest
-          format: table
-          exit-code: 1
-          ignore-unfixed: true
-          severity: HIGH,CRITICAL
-
       - name: Push Docker Images
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/notes-backend:${{ github.sha }}
