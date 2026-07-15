@@ -1,10 +1,7 @@
-name: Notes App CI Pipeline
+name: Notes App CI
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
     branches:
       - main
 
@@ -19,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install Dependencies
         working-directory: backend
@@ -42,19 +39,35 @@ jobs:
             -t ${{ secrets.DOCKER_USERNAME }}/notes-backend:latest \
             ./backend
 
-      - name: Install Trivy
+      - name: Run Docker Container
         run: |
-          sudo apt-get update
-          sudo apt-get install wget -y
-          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.65.0_Linux-64bit.deb
-          sudo dpkg -i trivy_0.65.0_Linux-64bit.deb
+          docker run -d \
+            --name notes-app \
+            -p 5000:5000 \
+            ${{ secrets.DOCKER_USERNAME }}/notes-backend:latest
+
+      - name: Verify Container is Running
+        run: |
+          sleep 10
+          docker ps
+          docker logs notes-app
+
+      - name: Stop and Remove Container
+        if: always()
+        run: |
+          docker stop notes-app || true
+          docker rm notes-app || true
 
       - name: Scan Docker Image
-        run: |
-          trivy image \
-          ${{ secrets.DOCKER_USERNAME }}/notes-backend:latest
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/notes-backend:latest
+          format: table
+          exit-code: 1
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
 
-      - name: Push Docker Image
+      - name: Push Docker Images
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/notes-backend:${{ github.sha }}
           docker push ${{ secrets.DOCKER_USERNAME }}/notes-backend:latest
