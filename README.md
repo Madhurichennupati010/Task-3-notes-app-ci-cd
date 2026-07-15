@@ -19,19 +19,26 @@ A containerized **Notes Application** built with **Node.js**, **Express.js**, an
 ## 📂 Project Structure
 
 ```
+## 📂 Project Structure
+
+```text
 notes-app-compose/
 │
+├── .github/
+│   └── workflows/
+│       └── ci.yml              # GitHub Actions CI workflow
+│
 ├── backend/
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── .env
-│   └── source files
+│   ├── Dockerfile              # Docker image configuration
+│   ├── package.json            # Project dependencies
+│   ├── package-lock.json       # Dependency lock file
+│   ├── .env                    # Environment variables
+│   ├── server.js               # Main application file
+│      
 │
-├── docker-compose.yml
-│
-└── .github/
-    └── workflows/
-        └── ci.yml
+├── docker-compose.yml          # Docker Compose configuration
+├── .gitignore                  # Ignored files
+└── README.md                   # Project documentation
 ```
 
 ---
