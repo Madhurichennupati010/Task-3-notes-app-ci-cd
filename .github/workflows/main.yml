@@ -61,14 +61,12 @@ jobs:
       - name: Verify Container
         run: |
           sleep 15
-          docker ps -a
+          docker ps
           docker logs notes-app
 
-      - name: Stop Container
-        if: always()
+      - name: Check Application
         run: |
-          docker stop notes-app || true
-          docker rm notes-app || true
+          curl -f http://localhost:3000 || exit 1
 
       - name: Push Docker Images
         run: |
