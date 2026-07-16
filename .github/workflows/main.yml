@@ -1,4 +1,4 @@
-name: Notes App CI
+name: Notes App CI/CD Pipeline
 
 on:
   push:
@@ -6,69 +6,137 @@ on:
       - main
 
 jobs:
-  build-test-push:
+  notes-app-ci:
+    name: Build, Test & Publish
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
+    # ===============================
+    # Checkout Repository
+    # ===============================
+    - name: Checkout Repository Source Code
+      uses: actions/checkout@v4
 
-      - name: Create .env file
-        run: |
-          cat <<EOF > backend/.env
-          DB_HOST=${{ secrets.DB_HOST }}
-          DB_USER=${{ secrets.DB_USER }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          DB_NAME=${{ secrets.DB_NAME }}
-          DB_PORT=${{ secrets.DB_PORT }}
-          PORT=${{ secrets.PORT }}
-          EOF
+    # ===============================
+    # Setup Node.js
+    # ===============================
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
 
-      - name: Install Dependencies
-        working-directory: backend
-        run: npm install
+    # ===============================
+    # Create Environment File
+    # ===============================
+    - name: Create Backend .env File
+      run: |
+        cat <<EOF > backend/.env
+        DB_HOST=${{ secrets.DB_HOST }}
+        DB_USER=${{ secrets.DB_USER }}
+        DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+        DB_NAME=${{ secrets.DB_NAME }}
+        DB_PORT=${{ secrets.DB_PORT }}
+        PORT=${{ secrets.PORT }}
+        EOF
 
-      - name: Run Tests
-        working-directory: backend
-        run: npm test --if-present
+    # ===============================
+    # Install Dependencies
+    # ===============================
+    - name: Install Dependencies
+      working-directory: backend
+      run: npm install
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+    # ===============================
+    # Run Tests
+    # ===============================
+    - name: Run Application Tests
+      working-directory: backend
+      run: npm test --if-present
 
-      - name: Build Docker Image
-        run: |
-          docker build \
-            -t ${{ secrets.DOCKER_USERNAME }}/notes-backend:latest \
-            -t ${{ secrets.DOCKER_USERNAME }}/notes-backend:${{ github.sha }} \
-            ./backend
+    # ===============================
+    # Login to Docker Hub
+    # ===============================
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Run Docker Container
-        run: |
-          docker run -d \
-            --name notes-app \
-            -p 3000:3000 \
-            --env-file backend/.env \
-            ${{ secrets.DOCKER_USERNAME }}/notes-backend:latest
+    # ===============================
+    # Build Backend Docker Image
+    # ===============================
+    - name: Build Backend Docker Image
+      run: |
+        docker build \
+        -t ${{ secrets.DOCKER_USERNAME }}/notes-backend:latest \
+        -t ${{ secrets.DOCKER_USERNAME }}/notes-backend:${{ github.sha }} \
+        ./backend
 
-      - name: Verify Container
-        run: |
-          sleep 15
-          docker ps
-          docker logs notes-app
+    # ===============================
+    # Build Nginx Docker Image
+    # ===============================
+    - name: Build Nginx Docker Image
+      run: |
+        docker build \
+        -t ${{ secrets.DOCKER_USERNAME }}/notes-nginx:latest \
+        -t ${{ secrets.DOCKER_USERNAME }}/notes-nginx:${{ github.sha }} \
+        ./nginx
 
-      - name: Check Application
-        run: |
-          curl -f http://localhost:3000 || true
+    # ===============================
+    # Start Docker Compose
+    # ===============================
+    - name: Start Docker Compose Environment
+      run: docker compose up -d
 
-      - name: Push Docker Images
-        run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/notes-backend:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/notes-backend:${{ github.sha }}
+    # ===============================
+    # Wait for Containers
+    # ===============================
+    - name: Wait for Services
+      run: sleep 40
+
+    # ===============================
+    # Verify Containers
+    # ===============================
+    - name: Verify Running Containers
+      run: |
+        docker compose ps
+        docker ps
+
+    # ===============================
+    # Display Container Logs
+    # ===============================
+    - name: Display Container Logs
+      run: docker compose logs
+
+    # ===============================
+    # Backend Health Check
+    # ===============================
+    - name: Backend API Health Check
+      run: |
+        curl --fail http://localhost:3000/api/notes
+
+    # ===============================
+    # Frontend Health Check
+    # ===============================
+    - name: Frontend Health Check
+      run: |
+        curl --fail http://localhost:3000
+
+    # ===============================
+    # Push Backend Image
+    # ===============================
+    - name: Push Backend Docker Image
+      run: |
+        docker push ${{ secrets.DOCKER_USERNAME }}/notes-backend:latest
+        docker push ${{ secrets.DOCKER_USERNAME }}/notes-backend:${{ github.sha }}
+
+    # ===============================
+    # Push Nginx Image
+    # ===============================
+    - name: Push Nginx Docker Image
+      run: |
+        docker push ${{ secrets.DOCKER_USERNAME }}/notes-nginx:latest
+        docker push ${{ secrets.DOCKER_USERNAME }}/notes-nginx:${{ github.sha }}
+
+
